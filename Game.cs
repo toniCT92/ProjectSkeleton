@@ -16,6 +16,7 @@ public sealed class Game : IDisposable
     private readonly Food _food;
     private long _lastMoveAtMs;
     private int _score;
+    private GameState _state = GameState.Playing;
     private bool _disposed;
     private bool _quit;
 
@@ -75,10 +76,35 @@ public sealed class Game : IDisposable
                     _quit = true;
                     break;
                 }
+
+                if (ev.Type == (uint)EventType.Keydown)
+                {
+                    var scancode = (KeyCode)ev.Key.Keysym.Scancode;
+
+                    if (scancode == KeyCode.Escape)
+                    {
+                        _quit = true;
+                        break;
+                    }
+
+                    Direction? requested = scancode switch
+                    {
+                        KeyCode.Up    => Direction.Up,
+                        KeyCode.Down  => Direction.Down,
+                        KeyCode.Left  => Direction.Left,
+                        KeyCode.Right => Direction.Right,
+                        _ => null
+                    };
+
+                    if (requested.HasValue && _state == GameState.Playing)
+                    {
+                        _snake.TryChangeDirection(requested.Value);
+                    }
+                }
             }
 
             var nowMs = Environment.TickCount64;
-            if (nowMs - _lastMoveAtMs >= MoveIntervalMs)
+            if (_state == GameState.Playing && nowMs - _lastMoveAtMs >= MoveIntervalMs)
             {
                 var next = _snake.PeekNextHead();
                 var willEat = next.X == _food.X && next.Y == _food.Y;
@@ -89,6 +115,12 @@ public sealed class Game : IDisposable
                     _food.Respawn(GridWidth, GridHeight, _snake);
                     _score++;
                     Console.WriteLine($"Score: {_score}");
+                }
+
+                if (_snake.CollidesWithWall(GridWidth, GridHeight) || _snake.CollidesWithSelf())
+                {
+                    _state = GameState.GameOver;
+                    Console.WriteLine($"Game Over! Score: {_score}");
                 }
 
                 _lastMoveAtMs = nowMs;
