@@ -7,10 +7,13 @@ public sealed class Game : IDisposable
     private const int GridWidth = 20;
     private const int GridHeight = 20;
     private const int CellSize = 32;
+    private const int MoveIntervalMs = 150;
 
     private readonly Sdl _sdl;
     private readonly IntPtr _window;
     private readonly IntPtr _renderer;
+    private readonly SnakeBody _snake;
+    private long _lastMoveAtMs;
     private bool _disposed;
     private bool _quit;
 
@@ -50,6 +53,9 @@ public sealed class Game : IDisposable
                 throw new InvalidOperationException("Failed to create renderer.");
             }
         }
+
+        _snake = new SnakeBody(GridWidth / 2, GridHeight / 2);
+        _lastMoveAtMs = Environment.TickCount64;
     }
 
     public void Run()
@@ -65,6 +71,14 @@ public sealed class Game : IDisposable
                     _quit = true;
                     break;
                 }
+            }
+
+            var nowMs = Environment.TickCount64;
+            if (nowMs - _lastMoveAtMs >= MoveIntervalMs)
+            {
+                _snake.Move(false);
+                Console.WriteLine($"Snake head: ({_snake.X}, {_snake.Y})");
+                _lastMoveAtMs = nowMs;
             }
 
             unsafe
