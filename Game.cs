@@ -13,7 +13,9 @@ public sealed class Game : IDisposable
     private readonly IntPtr _window;
     private readonly IntPtr _renderer;
     private readonly SnakeBody _snake;
+    private readonly Food _food;
     private long _lastMoveAtMs;
+    private int _score;
     private bool _disposed;
     private bool _quit;
 
@@ -55,6 +57,8 @@ public sealed class Game : IDisposable
         }
 
         _snake = new SnakeBody(GridWidth / 2, GridHeight / 2);
+        _food = new Food(0, 0);
+        _food.Respawn(GridWidth, GridHeight, _snake);
         _lastMoveAtMs = Environment.TickCount64;
     }
 
@@ -76,8 +80,17 @@ public sealed class Game : IDisposable
             var nowMs = Environment.TickCount64;
             if (nowMs - _lastMoveAtMs >= MoveIntervalMs)
             {
-                _snake.Move(false);
-                Console.WriteLine($"Snake head: ({_snake.X}, {_snake.Y})");
+                var next = _snake.PeekNextHead();
+                var willEat = next.X == _food.X && next.Y == _food.Y;
+                _snake.Move(grow: willEat);
+
+                if (willEat)
+                {
+                    _food.Respawn(GridWidth, GridHeight, _snake);
+                    _score++;
+                    Console.WriteLine($"Score: {_score}");
+                }
+
                 _lastMoveAtMs = nowMs;
             }
 
@@ -86,6 +99,10 @@ public sealed class Game : IDisposable
                 var r = (Renderer*)_renderer;
                 _sdl.SetRenderDrawColor(r, 20, 20, 20, 255);
                 _sdl.RenderClear(r);
+
+                _food.Render(_sdl, _renderer, CellSize);
+                _snake.Render(_sdl, _renderer, CellSize);
+
                 _sdl.RenderPresent(r);
             }
 

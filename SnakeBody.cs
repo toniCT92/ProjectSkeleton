@@ -1,3 +1,4 @@
+using Silk.NET.Maths;
 using Silk.NET.SDL;
 
 namespace TheAdventure;
@@ -91,6 +92,16 @@ public class SnakeBody : GameEntity
 
     public override void Render(Sdl sdl, IntPtr renderer, int cellSize)
     {
+        unsafe
+        {
+            var r = (Renderer*)renderer;
+            sdl.SetRenderDrawColor(r, 0, 200, 0, 255);
+            foreach (var seg in _segments)
+            {
+                var rect = new Rectangle<int>(seg.X * cellSize, seg.Y * cellSize, cellSize, cellSize);
+                sdl.RenderFillRect(r, in rect);
+            }
+        }
     }
 
     private static (int Dx, int Dy) DirectionToDelta(Direction dir) => dir switch
