@@ -8,15 +8,18 @@ public sealed class Game : IDisposable
     private const int GridHeight = 20;
     private const int CellSize = 32;
     private const int MoveIntervalMs = 150;
+    private const string HighScoreFile = "highscores.json";
 
     private readonly Sdl _sdl;
     private readonly IntPtr _window;
     private readonly IntPtr _renderer;
     private readonly SnakeBody _snake;
     private readonly Food _food;
+    private readonly HighScoreStore _highScores;
     private long _lastMoveAtMs;
     private int _score;
     private GameState _state = GameState.Playing;
+    private bool _gameOverHandled;
     private bool _disposed;
     private bool _quit;
 
@@ -60,6 +63,19 @@ public sealed class Game : IDisposable
         _snake = new SnakeBody(GridWidth / 2, GridHeight / 2);
         _food = new Food(0, 0);
         _food.Respawn(GridWidth, GridHeight, _snake);
+
+        _highScores = new HighScoreStore(HighScoreFile);
+        try
+        {
+            _highScores.Load();
+        }
+        catch (SaveCorruptedException ex)
+        {
+            Console.WriteLine($"Warning: could not load high scores ({ex.Message}). Starting fresh.");
+        }
+
+        PrintTopScores();
+
         _lastMoveAtMs = Environment.TickCount64;
     }
 
@@ -85,6 +101,12 @@ public sealed class Game : IDisposable
                     {
                         _quit = true;
                         break;
+                    }
+
+                    if (scancode == KeyCode.R && _state == GameState.GameOver)
+                    {
+                        Restart();
+                        continue;
                     }
 
                     Direction? requested = scancode switch
@@ -120,10 +142,14 @@ public sealed class Game : IDisposable
                 if (_snake.CollidesWithWall(GridWidth, GridHeight) || _snake.CollidesWithSelf())
                 {
                     _state = GameState.GameOver;
-                    Console.WriteLine($"Game Over! Score: {_score}");
                 }
 
                 _lastMoveAtMs = nowMs;
+            }
+
+            if (_state == GameState.GameOver && !_gameOverHandled)
+            {
+                HandleGameOver();
             }
 
             unsafe
@@ -139,6 +165,50 @@ public sealed class Game : IDisposable
             }
 
             System.Threading.Thread.Sleep(16);
+        }
+    }
+
+    private void HandleGameOver()
+    {
+        _gameOverHandled = true;
+        Console.WriteLine($"Game Over! Score: {_score}");
+        _highScores.AddScore(_score);
+        try
+        {
+            _highScores.Save();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: could not save high scores ({ex.Message}).");
+        }
+        PrintTopScores();
+        Console.WriteLine("Press R to restart, Esc to quit.");
+    }
+
+    private void Restart()
+    {
+        _snake.Reset(GridWidth / 2, GridHeight / 2);
+        _food.Respawn(GridWidth, GridHeight, _snake);
+        _score = 0;
+        _state = GameState.Playing;
+        _gameOverHandled = false;
+        _lastMoveAtMs = Environment.TickCount64;
+    }
+
+    private void PrintTopScores()
+    {
+        var top = _highScores.Top5();
+        if (top.Count == 0)
+        {
+            Console.WriteLine("Top scores: (none yet)");
+            return;
+        }
+        Console.WriteLine("Top 5 scores:");
+        var rank = 1;
+        foreach (var entry in top)
+        {
+            Console.WriteLine($"  {rank}. {entry.Score} pts on {entry.When:yyyy-MM-dd}");
+            rank++;
         }
     }
 

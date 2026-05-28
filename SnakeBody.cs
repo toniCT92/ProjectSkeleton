@@ -11,13 +11,21 @@ public class SnakeBody : GameEntity
 
     public SnakeBody(int startX, int startY) : base(startX, startY)
     {
-        _segments.Add((startX, startY));
-        _segments.Add((startX - 1, startY));
-        _segments.Add((startX - 2, startY));
+        SeedSegments(startX, startY);
     }
 
     public IReadOnlyList<(int X, int Y)> Segments => _segments;
     public Direction CurrentDirection => _currentDirection;
+
+    public void Reset(int startX, int startY)
+    {
+        _segments.Clear();
+        SeedSegments(startX, startY);
+        _currentDirection = Direction.Right;
+        _pendingDirection = null;
+        X = startX;
+        Y = startY;
+    }
 
     public bool TryChangeDirection(Direction next)
     {
@@ -102,6 +110,13 @@ public class SnakeBody : GameEntity
                 sdl.RenderFillRect(r, in rect);
             }
         }
+    }
+
+    private void SeedSegments(int startX, int startY)
+    {
+        _segments.Add((startX, startY));
+        _segments.Add((startX - 1, startY));
+        _segments.Add((startX - 2, startY));
     }
 
     private static (int Dx, int Dy) DirectionToDelta(Direction dir) => dir switch
